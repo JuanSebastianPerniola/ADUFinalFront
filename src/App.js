@@ -1,82 +1,80 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import React, { useState } from "react";
+import axios from "axios";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 function Search() {
-  const [reservations, setReservationList] = useState([]);
-  const [searchOptions, setSearchOptions] = useState([]);
-  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [reservations, setReservations] = useState([]);
+  const [selectedView, setSelectedView] = useState("reservas"); // Alterna entre "reservas" y "search"
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Obtener lista de reservas desde el backend
-    axios.get('https://localhost:8080/reserva/reservationList') // Ajustar la URL
-      .then((response) => setReservationList(response.data))
-      .catch((error) => console.error('Error al obtener reservas:', error));
-  }, []);
-
-  const handleSearch = () => {
-    // Hacer una petición POST con la fecha seleccionada (ajustar la URL del backend)
-    axios.post('http://localhost:8080/reserva/search', { date: selectedDate }) // Ajustar la URL
-      .then((response) => setSearchOptions(response.data))
-      .catch((error) => console.error('Error en búsqueda:', error));
-  };
-
-  const handleReservationClick = (idReserva) => {
-    // Filtrar la reserva seleccionada y mostrarla
-    const reservaSeleccionada = reservations.find(res => res.idReserva === idReserva);
-    setSelectedReservation(reservaSeleccionada);
+  const fetchReservations = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get("http://localhost:8081/reserva/listar");
+      const transformedReservations = response.data.map((r) => ({
+        idReserva: r[0],
+        checkIn: r[1],
+        checkOut: r[2],
+        persona: {
+          nombre: r[3],
+          apellido: r[4],
+          email: r[5],
+        },
+      }));
+      setReservations(transformedReservations);
+    } catch (error) {
+      console.error("Error al obtener reservas:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div>
-      <h1>Search Page</h1>
+      <h1>Pagina de búsqueda y reservas</h1>
 
-      {/* Botones para listar las reservas */}
-      <div>
-        <h3>Reservas hechas:</h3>
-        {reservations.map((res) => (
-          <button 
-            key={res.idReserva} 
-            onClick={() => handleReservationClick(res.idReserva)}
-            style={{ marginBottom: '10px', padding: '10px' }}
-          >
-            Reserva {res.idReserva} - {res.persona.nombre}
-          </button>
-        ))}
-      </div>
+      {/* Barra de navegación */}
+      <nav className="navBar">
+        <button className="navBarButton" onClick={() => setSelectedView("reservas")}>
+          Reservas
+        </button>
+        <button className="navBarButton" onClick={() => setSelectedView("search")}>
+          Search
+        </button>
+      </nav>
 
-      {/* Calendario para elegir la fecha */}
-      <div>
-        <label>Seleccionar fecha:</label>
-        <DatePicker
-          selected={selectedDate}
-          onChange={(date) => setSelectedDate(date)}
-          dateFormat="yyyy-MM-dd"
-        />
-        <button onClick={handleSearch}>Buscar</button>
-      </div>
-
-      {/* Mostrar los detalles de la reserva seleccionada */}
-      {selectedReservation && (
+      {/* Vista de Reservas */}
+      {selectedView === "reservas" && (
         <div>
-          <h3>Detalles de la Reserva:</h3>
-          <p><strong>ID de Reserva:</strong> {selectedReservation.idReserva}</p>
-          <p><strong>Persona:</strong> {selectedReservation.persona.nombre}</p>
-          <p><strong>Hotel:</strong> {selectedReservation.hotel.nombre}</p>
-          <p><strong>Check-in:</strong> {selectedReservation.checkIn}</p>
-          <p><strong>Check-out:</strong> {selectedReservation.checkOut}</p>
+          <button type="button" className="btn btn-primary" onClick={fetchReservations} disabled={loading}>
+            {loading ? "Cargando..." : "Ver todas las reservas"}
+          </button>
+
+          <div>
+            <h3>Lista de Reservas:</h3>
+            {reservations.map((res) => (
+              <div key={res.idReserva} className="reservaCard">
+                <p><strong>ID:</strong> {res.idReserva}</p>
+                <p><strong>Nombre:</strong> {res.persona.nombre} {res.persona.apellido}</p>
+                <p><strong>Email:</strong> {res.persona.email}</p>
+                <p><strong>Check-in:</strong> {res.checkIn}</p>
+                <p><strong>Check-out:</strong> {res.checkOut}</p>
+              </div>
+            ))}
+          </div>
+
         </div>
       )}
 
-      {/* Resultados de búsqueda */}
-      {searchOptions.length > 0 && (
-        <ul>
-          {searchOptions.map((item, index) => (
-            <li key={index}>{item.resultado}</li>
-          ))}
-        </ul>
+      {/* Vista de Búsqueda */}
+      {selectedView === "search" && (
+        <div>
+          <h3>Buscar por fecha</h3>
+          <DatePicker selected={selectedDate} onChange={(date) => setSelectedDate(date)} dateFormat="yyyy-MM-dd" />
+          <button className="btn btn-secondary">Buscar</button>
+        </div>
       )}
     </div>
   );
