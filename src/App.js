@@ -5,23 +5,19 @@ function Search() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedReserva, setSelectedReserva] = useState(null);
+  const [editMode, setEditMode] = useState(false);
 
-  // Obtener reservas
   const fetchReservations = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:8080/reserva/listar");
-      const transformedReservations = response.data.map((r) => ({
-        idReserva: r[0],
-        checkIn: r[1],
-        checkOut: r[2],
-        persona: {
-          nombre: r[3],
-          apellido: r[4],
-          email: r[5],
-        },
-      }));
-      setReservations(transformedReservations);
+      const response = await axios.get("http://localhost:8084/reserva/listar");
+      console.log("Datos recibidos:", response.data);
+      
+      const validReservations = response.data.filter(reserva => 
+        reserva.idReserva && reserva.persona
+      );
+      
+      setReservations(validReservations);
     } catch (error) {
       console.error("Error al obtener reservas:", error);
     } finally {
@@ -29,114 +25,150 @@ function Search() {
     }
   };
 
-  // Actualizar reserva
-  const fetchUpdate = async () => {
-    if (!selectedReserva) return;
-
-    try {
-      const updatedReserva = {
-        idReserva: selectedReserva.idReserva,
-        checkIn: selectedReserva.checkIn.split("T")[0],
-        checkOut: selectedReserva.checkOut.split("T")[0],
-        persona: {
-          nombre: selectedReserva.persona.nombre,
-          apellido: selectedReserva.persona.apellido,
-          email: selectedReserva.persona.email
-        }
-      };
-
-      const response = await axios.put("http://localhost:8080/reserva/actualizar", updatedReserva);
-      console.log("Respuesta del backend:", response.data); // 👀
-
-      await fetchReservations();
-      setSelectedReserva(null);
-    } catch (error) {
-      console.error("Error al actualizar reserva:", error.response?.data || error.message);
-    }
-  };
-
   // Eliminar reserva
-  const fetchDelete = async (idReserva) => {
+  const handleDelete = async (id) => {
     try {
-      await axios.delete(`http://localhost:8080/reserva/deleteReservar/${idReserva}`);
-      fetchReservations(); // Recargar la lista después de eliminar
+      await axios.delete(`http://localhost:8084/reserva/${id}`);
+      // Actualizar la lista después de eliminar
+      fetchReservations();
+      alert("Reserva eliminada correctamente");
     } catch (error) {
       console.error("Error al eliminar reserva:", error);
+      alert("Error al eliminar la reserva");
     }
   };
 
-  const handleUpdateClick = (reserva) => {
+  // Manejar edición
+  const handleEdit = (reserva) => {
     setSelectedReserva(reserva);
+    setEditMode(true);
   };
 
-  const handleSaveUpdate = () => {
-    if (selectedReserva) {
-      fetchUpdate(); // No necesita argumento
+  // Manejar cambios en los campos editables
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setSelectedReserva(prev => ({
+      ...prev,
+      [name]: value,
+      persona: {
+        ...prev.persona,
+        [name]: value
+      }
+    }));
+  };
+
+  // Actualizar reserva
+  const handleUpdate = async () => {
+    try {
+      await axios.put(`http://localhost:8084/reserva/Update/${selectedReserva.idReserva}`, selectedReserva);
+      setEditMode(false);
+      setSelectedReserva(null);
+      fetchReservations();
+      alert("Reserva actualizada correctamente");
+    } catch (error) {
+      console.error("Error al actualizar reserva:", error);
+      alert("Error al actualizar la reserva");
     }
   };
 
   return (
-    <div>
+    <div className="container">
       <h1>Lista de Reservas</h1>
-
-      {/* Botón para obtener reservas */}
-      <button type="button" className="btn btn-primary" onClick={fetchReservations} disabled={loading}>
-        {loading ? "Cargando..." : "Ver todas las reservas"}
+      <button onClick={fetchReservations} disabled={loading}>
+        {loading ? "Cargando..." : "Ver reservas"}
       </button>
 
-      {/* Lista de Reservas */}
-      <div>
-        <h3>Lista de Reservas:</h3>
-        {reservations.map((res) => (
-          <div key={res.idReserva} className="reservaCard">
-            <p><strong>Nombre:</strong> {res.persona.nombre} {res.persona.apellido}</p>
-            <p><strong>Email:</strong> {res.persona.email}</p>
-            <p><strong>Check-in:</strong> {res.checkIn}</p>
-            <p><strong>Check-out:</strong> {res.checkOut}</p>
-            <button className="navBarButton" onClick={() => handleUpdateClick(res)}>Modificar</button>
-            <button className="navBarButton" onClick={() => fetchDelete(res.idReserva)}>Eliminar</button>
+      <div className="reservas-container">
+        {reservations.map((reserva) => (
+          <div key={`reserva-${reserva.idReserva}`} className="reserva-card">
+            {editMode && selectedReserva?.idReserva === reserva.idReserva ? (
+              <div>
+                <h3>Editando Reserva #{reserva.idReserva}</h3>
+                <div>
+                  <label>Check-in:</label>
+                  <input
+                    type="text"
+                    name="checkIn"
+                    value={selectedReserva.checkIn}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label>Check-out:</label>
+                  <input
+                    type="text"
+                    name="checkOut"
+                    value={selectedReserva.checkOut}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label>Nombre:</label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={selectedReserva.persona.nombre}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label>Apellido:</label>
+                  <input
+                    type="text"
+                    name="apellidos"
+                    value={selectedReserva.persona.apellidos}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label>Email:</label>
+                  <input
+                    type="text"
+                    name="email"
+                    value={selectedReserva.persona.email}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <button onClick={handleUpdate}>Guardar</button>
+                <button onClick={() => setEditMode(false)}>Cancelar</button>
+              </div>
+            ) : (
+              <div>
+                <h3>Reserva #{reserva.idReserva}</h3>
+                <p><strong>Fechas:</strong> {reserva.checkIn} al {reserva.checkOut}</p>
+                
+                {reserva.hotel && Object.keys(reserva.hotel).length > 0 && (
+                  <div className="hotel-info">
+                    <h4>Hotel</h4>
+                    <p><strong>Nombre:</strong> {reserva.hotel.nombre}</p>
+                    {reserva.hotel.direccion && <p><strong>Dirección:</strong> {reserva.hotel.direccion}</p>}
+                  </div>
+                )}
+                
+                {reserva.habitacion && Object.keys(reserva.habitacion).length > 0 && (
+                  <div className="habitacion-info">
+                    <h4>Habitación</h4>
+                    <p><strong>Tipo:</strong> {reserva.habitacion.tipo}</p>
+                    {reserva.habitacion.capacidad && <p><strong>Capacidad:</strong> {reserva.habitacion.capacidad}</p>}
+                  </div>
+                )}
+                
+                <div className="persona-info">
+                  <h4>Cliente</h4>
+                  <p><strong>Nombre:</strong> {reserva.persona.nombre} {reserva.persona.apellidos}</p>
+                  <p><strong>Email:</strong> {reserva.persona.email}</p>
+                  {reserva.persona.telefono && <p><strong>Teléfono:</strong> {reserva.persona.telefono}</p>}
+                </div>
+                
+                <div className="reserva-actions">
+                  <button onClick={() => handleEdit(reserva)}>Editar</button>
+                  <button onClick={() => handleDelete(reserva.idReserva)}>Eliminar</button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
-
-      {/* Modal de edición */}
-      {selectedReserva && (
-        <div className="modal">
-          <h3>Editar Reserva</h3>
-          <label>Nombre:
-            <input type="text" value={selectedReserva.persona.nombre}
-              onChange={(e) => setSelectedReserva({
-                ...selectedReserva,
-                persona: { ...selectedReserva.persona, nombre: e.target.value }
-              })}
-            />
-          </label>
-
-          <label>Apellido:
-            <input type="text" value={selectedReserva.persona.apellido}
-              onChange={(e) => setSelectedReserva({
-                ...selectedReserva,
-                persona: { ...selectedReserva.persona, apellido: e.target.value }
-              })}
-            />
-          </label>
-
-          <label>Check-in:
-            <input type="date" value={selectedReserva.checkIn}
-              onChange={(e) => setSelectedReserva({ ...selectedReserva, checkIn: e.target.value })}
-            />
-          </label>
-
-          <label>Check-out:
-            <input type="date" value={selectedReserva.checkOut}
-              onChange={(e) => setSelectedReserva({ ...selectedReserva, checkOut: e.target.value })}
-            />
-          </label>
-
-          <button onClick={handleSaveUpdate}>Guardar</button>
-          <button onClick={() => setSelectedReserva(null)}>Cancelar</button>
-        </div>
-      )}
     </div>
   );
 }
